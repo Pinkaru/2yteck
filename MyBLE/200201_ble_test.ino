@@ -15,7 +15,6 @@
 
 MyBLE_2YTECK myBLE;
 
-
 void setup() {
   Serial.begin(115200);
   myBLE = MyBLE_2YTECK();

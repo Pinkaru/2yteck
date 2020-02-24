@@ -8,7 +8,16 @@
 #define EEPROM_PSWD_OFFSET 33
 #define EEPROM_WIFI_OFFSET 0
 
-bool WriteEEPROM(int start, int size, char * data);
-bool ReadEEEPROM(int start, int size, char * data);
+class MyEEPROM_2YTECK
+{
+    public:
+        // MyEEPROM_2YTECK();
+        bool WriteEEPROM(int start, int size, char * data);
+        bool ReadEEPROM(int start, int size, char * data);
+        void SetupEEPROM();
+};
+
+
+
 
 #endif //__2YTECK_EEPROM__

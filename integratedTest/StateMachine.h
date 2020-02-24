@@ -20,5 +20,11 @@ class MySTATE_2YTECK
         stateOfjangpan changeState(stateOfjangpan value);
         stateOfjangpan calcState();
         void toString();
+
+        float temperature;
+        bool isPowerOn;
+        float pressure;
+        bool isFired;
+        bool isNoMovement;
 };
 #endif //__2YTECK_STATEMACHINE__

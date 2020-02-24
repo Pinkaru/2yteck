@@ -1,7 +1,11 @@
 #include "2yteck_eeprom.h"
 
+// MyEEPROM_2YTECK::MyEEPROM_2YTECK()
+// {
+//     SetupEEPROM();
+// }
 
-bool WriteEEPROM(int start, int size, char * data)
+bool MyEEPROM_2YTECK::WriteEEPROM(int start, int size, char * data)
 {
     if(start >= EEPROM_SIZE) return false;
     for(int romIndex = start, dataIndex =0; romIndex<start + size; romIndex++, dataIndex++)
@@ -11,7 +15,7 @@ bool WriteEEPROM(int start, int size, char * data)
     EEPROM.commit();
     return true;
 }
-bool ReadEEEPROM(int start, int size, char * data)
+bool MyEEPROM_2YTECK::ReadEEPROM(int start, int size, char * data)
 {
     if(start >= EEPROM_SIZE) return false;
     for(int romIndex = start, dataIndex = 0; romIndex<start+size; romIndex++, dataIndex++)
@@ -19,4 +23,12 @@ bool ReadEEEPROM(int start, int size, char * data)
         data[dataIndex] = EEPROM.read(romIndex);
     }
     return true;
+}
+
+void MyEEPROM_2YTECK::SetupEEPROM()
+{
+    if (!EEPROM.begin(EEPROM_SIZE))
+    {
+        Serial.println("failed to initialise EEPROM"); delay(1000000);
+    }
 }
