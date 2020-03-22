@@ -33,6 +33,7 @@
 #include <SoftwareSerial.h>
 /*      Global Variable              */
 
+#define __DEBUG__ 0
 MyEEPROM_2YTECK myEEPROM;
 MyBLE_2YTECK myBLE;
 MyWiFi_2YTECK myWiFi;
@@ -43,9 +44,9 @@ WiFiClient client;
 
 char wifiSSID[128] = {0};
 char wifiPSWD[128] = {0};
-char socketPATH[128] = "/";
-char socketHOST[128] = "";
-int  socketPort = 9999;
+char socketPATH[] = "/";
+char socketHOST[] = "clopi.it";
+int  socketPort = 3000;
 bool isWiFiConnected = false;
 DynamicJsonDocument doc(1024);
 
@@ -60,31 +61,80 @@ ThreadController controll = ThreadController();
 
 bool isMessageForSend = false;
 bool isMessageForReceive = false;
-bool isCalledBleButton = true; // true test
+bool isCalledBleButton = false; // true test
+
+const int ledWiFiGreen  =   18;
+const int ledWiFiRed    =   19;
+const int ledFireGreen  =   26;
+const int ledFireRed    =   25;
+
+/*
+*   TempController status
+    temperature 
+    powerstate
+    Outing
+    errorstate
+*/
+unsigned int temperature = 15; //default value
+bool powerState = false;
+bool outing = false;
+unsigned int errState = 0; // error nothing
+int smokeDetectorValue =0;
+bool smokeDetected = false;
+void printStatus()
+{
+    Serial.println("*****\t Temperature State\t *****");
+    Serial.print("Temperature: ");
+    Serial.println(temperature);
+    Serial.print("Power State: ");
+    if(powerState)
+        Serial.println("ON");
+    else 
+        Serial.println("OFF");
+    Serial.print("Outing State: ");
+    if(outing)
+        Serial.println("ON");
+    else 
+        Serial.println("OFF");
+    Serial.print("Smoke Detection Value: ");
+    Serial.println(smokeDetectorValue);
+    // if(smokeDetected)
+    // {
+    //     Serial.println("Smoke Detected");
+    //     digitalWrite(ledWiFiRed, 1);
+    //     digitalWrite(ledWiFiGreen, 0);
+    // }
+}
+
 
 /* 
  * Button Global Variable
 */
 
-const int bleButtonPin = NULL; //아직 미정
+const int bleButtonPin = 16; //16
+const int fireButtonPin = 17; //16
 bool bleButtonONState = false;
 bool bleBUttonPrevState = false;
 bool bleButtonCurrState = false;
 bool bleButtonWorked = false;   //button state
+bool fireButtonONState = false;
+bool fireBUttonPrevState = false;
+bool fireButtonCurrState = false;
 void buttonSetup()
 {
-    pinMode(bleButtonPin, INPUT);
+    pinMode(bleButtonPin, INPUT_PULLUP);
+    pinMode(fireButtonPin, INPUT_PULLUP);
 }
 void pushedButtonCallback() //50 millis   //ㅑf pull-up switch, need if state change
 {
-    Serial.print("pushedButtonCallback\n");
+    //Serial.print("pushedButtonCallback\n");
     //Button Check
     //read button pin state
     //if set, save prevButtonState
     //after 30 milli seconds, if pin state hihg, set button state. -> change 30 -> 50
     //if prevButtonState is set, if read pin state is high, not work
 
-    bleButtonCurrState = digitalRead(bleButtonPin);
+    bleButtonCurrState = !(digitalRead(bleButtonPin));
     if(bleButtonCurrState && !isCalledBleButton)
     {
         if(!bleBUttonPrevState)
@@ -94,6 +144,7 @@ void pushedButtonCallback() //50 millis   //ㅑf pull-up switch, need if state c
         else
         {
             if(!bleButtonONState){
+                Serial.print("BLE Button Press\n");
                 bleButtonONState = true;
                 isCalledBleButton = true;
             }
@@ -104,6 +155,29 @@ void pushedButtonCallback() //50 millis   //ㅑf pull-up switch, need if state c
         bleButtonONState = false;
         bleBUttonPrevState = false;
     }
+    fireButtonCurrState = !(digitalRead(fireButtonPin));
+    if(fireButtonCurrState)
+    {
+        if(!fireBUttonPrevState)
+        {
+            fireBUttonPrevState = true;
+        }
+        else
+        {
+            if(!fireButtonONState){
+                Serial.print("Fire Button Press\n");
+                fireButtonONState = true;
+                digitalWrite(ledFireGreen, 1);
+                digitalWrite(ledFireRed, 0);
+            }
+        }
+    }
+    else    //bleButton reset, button enable work
+    {
+        fireButtonONState = false;
+        fireBUttonPrevState = false;
+    }
+
 }
 
 /*
@@ -111,7 +185,7 @@ void pushedButtonCallback() //50 millis   //ㅑf pull-up switch, need if state c
 */
 const int smokeDetectorReceivePin = 34;
 const int smokeDetectorTransmitPin = 4;
-int smokeDetectorValue;
+// int smokeDetectorValue; //위로 이동
 // 이동평균필터를 적용하기 위해서는 n개의 array필요. 메모리가 가능한지 검토후에 적용
 // int smokeDetectorPrevValue;
 // int smokeDetectorValueCount;
@@ -120,8 +194,8 @@ bool smokeDetectorWorkStable = false;
 unsigned long smokeDetectorWorkingStart;
 unsigned long smokeDetectorWorkingEnd;
 unsigned long smokeDetectorCheckDelayStart;
-bool smokeDetected = false;
-int smokeEmergencyValue = 200;  //test
+// bool smokeDetected = false; //위로 올림
+int smokeEmergencyValue = 30;  //test
 void smokeDetectorSetup()
 {
     pinMode(smokeDetectorTransmitPin, OUTPUT);
@@ -133,7 +207,7 @@ void smokeDetectorSetup()
 
 void checkEmergencyCallback()
 {
-    Serial.print("CheckEmergencyCallback\n");
+    //Serial.print("CheckEmergencyCallback\n");
     //check emergency
     //check ir gas checker
     //check human don't moving
@@ -142,8 +216,8 @@ void checkEmergencyCallback()
     unsigned long smokeDetectorCurrTime = millis();
     if(smokeDetectorWorkState)
     {
-        //감지기에 전원이 들어간 이후로 20초 대기(안정화)
-        if((smokeDetectorCurrTime - smokeDetectorWorkingStart) > 20*1000)
+        //감지기에 전원이 들어간 이후로 5초 대기(안정화)
+        if((smokeDetectorCurrTime - smokeDetectorWorkingStart) > 5*1000)
         {
             if(!smokeDetectorWorkStable)
             {
@@ -158,9 +232,13 @@ void checkEmergencyCallback()
         if(smokeDetectorWorkStable)
         {
             //woking stable, check value stable
-            if((smokeDetectorCurrTime - smokeDetectorCheckDelayStart) > 30*1000)
+            if((smokeDetectorCurrTime - smokeDetectorCheckDelayStart) > 10*1000)
             {
                 smokeDetectorValue = analogRead(smokeDetectorReceivePin);
+                #if __DEBUG__
+                Serial.print("debugging... Smoke Detector value: ");
+                Serial.println(smokeDetectorValue);
+                #endif
             }
         }
 
@@ -169,6 +247,9 @@ void checkEmergencyCallback()
             //alarm
             //led
             smokeDetected = true;
+            Serial.println("Smoke Detected");
+            digitalWrite(ledFireRed, 1);
+            digitalWrite(ledFireGreen, 0);
             //when smoke detected reset?
         }
         else
@@ -185,13 +266,15 @@ bool isWebSocketConnected = false;
 bool isClientConnected = false;
 void websocketThreadCallback()
 {
-    Serial.print("WebSocketThreadCallback\n");
+    //Serial.print("WebSocketThreadCallback\n");
     //check wifi connected -> wifi connected status bool check -> yes next
     if(isWiFiConnected)
     {
         if(!isClientConnected)
-            if(client.connect(socketHOST, socketPort))
+            if(client.connect(socketHOST, socketPort)){
                 isClientConnected = true;
+                Serial.print("WebSocket Client Connected\n");
+            }
             else
                 isClientConnected = false;
         if(!isWebSocketConnected)
@@ -214,30 +297,54 @@ void websocketThreadCallback()
                 String event;
                 String action;
                 myJSON.checkEvent(webSocketgetData, event, action);
-                if(event == "pw")
-                    if(action == "on")
-                        //serial send power on
+                if(!strcmp(event.c_str(), "pw"))
+                    if(!strcmp(action.c_str(),"on"))
+                    {
                         Serial.print("power on\n");
-                    else if(action == "off")
+                        powerState = true;
+                        printStatus();
+                    }
+                        //serial send power on
+                    else if(!strcmp(action.c_str(),"off")){
                         //serial send power off
                         Serial.print("power off\n");
-                else if(event == "temp")
-                    if(action == "up")
+                        powerState = false;
+                        printStatus();
+                    }
+                if(!strcmp(event.c_str(), "temp"))
+                    if(!strcmp(action.c_str(),"up"))
+                    {
                         //serial send temp up
                         Serial.print("temperature up\n");
-                    else if(action == "down")
+                        temperature++;
+                        printStatus();
+                    }
+                    else if(!strcmp(action.c_str(),"down"))
+                    {
                         //serial send temp down
                         Serial.print("temperature down\n");
-                else if(event == "outing")
-                    if(action == "on")
+                        temperature--;
+                        printStatus();
+                    }
+                if(!strcmp(event.c_str(),"outing"))
+                    if(!strcmp(action.c_str(),"on"))
+                    {
                         //serial outing on
-                        Serial.print("outing on\n");
-                    else if(action == "off")
+                        // Serial.print("outing on\n");
+                        outing = true;
+                        printStatus();
+                    }
+                    else if(!strcmp(action.c_str(),"off"))
+                    {
                         //serial outing off
-                        Serial.print("outing off\n");
-                else if(event == "status")
+                        // Serial.print("outing off\n");
+                        outing = false;
+                        printStatus();
+                    }
+                if(!strcmp(event.c_str(),"status"))
                     //webscoekt send status
-                    Serial.print("status send\n");
+                    // Serial.print("status send\n");
+                    printStatus();
             }
             //Check for messages to send -> bool pushed button or emergency
             //receive message
@@ -259,7 +366,7 @@ void websocketThreadCallback()
 */
 void checkWiFiConnectedCallback()   // 1 minute period
 {
-    Serial.print("CheckWiFiConnectedCallback\n");
+    // Serial.print("CheckWiFiConnectedCallback\n");
     //check wifi connected -> wifi connected status bool check -> no next
         //try wifi connect
         //reconnected -> isWifiConnected = true
@@ -268,6 +375,8 @@ void checkWiFiConnectedCallback()   // 1 minute period
     char pswd[128];
     if(WiFi.status() != WL_CONNECTED)
     {
+        digitalWrite(ledWiFiGreen, 0);
+        digitalWrite(ledWiFiRed, 1);
         isWiFiConnected = false;
         if(myWiFi.isWiFiConnected())
         {
@@ -279,6 +388,8 @@ void checkWiFiConnectedCallback()   // 1 minute period
     else
     {
         isWiFiConnected = true;
+        digitalWrite(ledWiFiGreen, 1);
+        digitalWrite(ledWiFiRed, 0);
     }
 }
 
@@ -295,7 +406,7 @@ void tempControllerSerialSetup()
 }
 void tempControllerSerialCallback()
 {
-    Serial.print("TempControllerSerialCallback\n");
+    //Serial.print("TempControllerSerialCallback\n");
     //check if a controller message has been received
     if(tempController.available() > 0)
     {
@@ -304,6 +415,32 @@ void tempControllerSerialCallback()
     if(isMessageForReceive)
     {
         //button callback or function
+    }
+    
+    if(Serial.available() > 0)
+    {
+        String inputData = Serial.readString();
+        Serial.print("serial Receive: ");
+        Serial.print(inputData.c_str());
+        Serial.print("\n");
+
+        if(isClientConnected)
+        {
+            DeserializationError error = deserializeJson(doc, inputData);
+            JsonObject obj = doc.as<JsonObject>();
+            String event = obj[String("event")];
+            String action = obj[String("action")];
+            char makeMsg[128];
+            sprintf(makeMsg, "{\"event\" : \"%s\", \"action\" : \"%s\"}", event.c_str(), action.c_str());
+            Serial.print(makeMsg);
+            Serial.print("\n");
+
+            webSocketClient.sendData(makeMsg);
+        }
+
+    
+
+        
     }
 }
 
@@ -318,7 +455,7 @@ void bleThreadSetup()
 }
 void bleThreadCallback()
 {
-    Serial.print("BLEThreadCallback\n");
+    //Serial.print("BLEThreadCallback\n");
     //button event -> bool
     unsigned long bleThreadCurrTime = millis();
     if(isCalledBleButton)
@@ -337,8 +474,50 @@ void bleThreadCallback()
             isCalledBleButton = false;
         }
 
+        // Serial.print("debugging.... ssid: ");
+        // Serial.print(myBLE.ssid);
+        // Serial.print(" pswd:");
+        // Serial.println(myBLE.pswd);
+        // Serial.print("debugging... if(strmcp): ");
+        // Serial.print(strcmp(myBLE.ssid,"NULL"));
+        // Serial.print(", if(strmcp): ");
+        // Serial.println(strcmp(myBLE.pswd,"NULL"));
+
+        if((strcmp(myBLE.ssid,"NULL")) && (strcmp(myBLE.pswd,"NULL")))
+        {
+            // Serial.println("debugging.... myBLE jump in if");
+            if(WiFi.status() != WL_CONNECTED)
+            {
+                Serial.print("ssid: ");
+                Serial.print(myBLE.ssid);
+                Serial.print(" pswd: ");
+                Serial.println(myBLE.pswd);
+                myWiFi.ConnectWifi(myBLE.ssid, myBLE.pswd);
+            }
+            else
+            {
+                // myBLE.StopBLE();
+            }
+        }
+        // else {
+        //     Serial.println("debugging.... myBLE jump in else");
+        //     if(WiFi.status() != WL_CONNECTED)
+        //     {
+        //         Serial.print("ssid: ");
+        //         Serial.print(myBLE.ssid);
+        //         Serial.print(" pswd: ");
+        //         Serial.println(myBLE.pswd);
+        //         myWiFi.ConnectWifi(myBLE.ssid, myBLE.pswd);
+        //     }
+        //     else
+        //     {
+        //         // myBLE.StopBLE();
+        //     }
+        // }
+        
+
         //ready for phone connection
-        isCalledBleButton = false;
+        // isCalledBleButton = false;
     }
 }
 
@@ -353,7 +532,7 @@ void setup()
 
     smokeDetectorSetup();
     checkEmergency->onRun(checkEmergencyCallback);
-    checkEmergency->setInterval(5*1000);
+    checkEmergency->setInterval(1*1000);
 
     websocketThread->onRun(websocketThreadCallback);
     websocketThread->setInterval(2*1000);
@@ -377,8 +556,18 @@ void setup()
     controll.add(checkWiFiConnected);
     controll.add(tempControllerSerial);
     controll.add(bleThread);
+ 
+    pinMode(ledFireRed, OUTPUT);
+    pinMode(ledFireGreen, OUTPUT);
+    pinMode(ledWiFiGreen, OUTPUT);
+    pinMode(ledWiFiRed, OUTPUT);
+
+    digitalWrite(ledFireRed, 0);
+    digitalWrite(ledFireGreen, 1);
 }
 void loop()
 {
+    
     controll.run();
+
 }
