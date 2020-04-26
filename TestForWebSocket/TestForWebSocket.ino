@@ -519,10 +519,17 @@ void bleThreadCallback()
 
         if((strcmp(myBLE.ssid,"NULL")) && (strcmp(myBLE.pswd,"NULL")))
         {
-            WiFi.disconnect();
+            // if(myBLE.bleReceiveSomething)
+            // {
+            //     Serial.println("bleReceiveSomething");
+            //     WiFi.disconnect();
+            //     myBLE.bleReceiveSomething = false;
+            // }
             // Serial.println("debugging.... myBLE jump in if");
-            if(WiFi.status() != WL_CONNECTED)
+            // if(WiFi.status() != WL_CONNECTED)
+            if(myBLE.bleReceiveSomething)
             {
+                myBLE.bleReceiveSomething = false;
                 Serial.print("ssid: ");
                 Serial.print(myBLE.ssid);
                 Serial.print(" pswd: ");

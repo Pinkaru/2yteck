@@ -54,6 +54,7 @@ class MyBLE_2YTECK: public BLEServerCallbacks, public BLECharacteristicCallbacks
 
     bool deviceConnected;
     bool oldDeviceConnected;
+    bool bleReceiveSomething;
 
     char ssid[128];
     char pswd[128];
@@ -73,6 +74,7 @@ class MyBLE_2YTECK: public BLEServerCallbacks, public BLECharacteristicCallbacks
     }
 
     void onWrite(BLECharacteristic *pCharacteristic) {
+        bleReceiveSomething = true;
         std::string rxValue = pCharacteristic->getValue();    
         if (rxValue.length() > 0) {
             BLEReceiveValue(rxValue);

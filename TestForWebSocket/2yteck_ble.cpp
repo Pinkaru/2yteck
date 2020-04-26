@@ -13,7 +13,7 @@ void MyBLE_2YTECK::SetupBLE()
     pServer->setCallbacks(this);
 
     const uint8_t* bdAddr = esp_bt_dev_get_address();
-    sprintf(bleAddrStr, "%02x:%02x:%02x:%02x:%02x:%02", bdAddr[0], bdAddr[1], bdAddr[2], bdAddr[3], bdAddr[4], bdAddr[5]);
+    sprintf(bleAddrStr, "%02x:%02x:%02x:%02x:%02x:%02x", bdAddr[0], bdAddr[1], bdAddr[2], bdAddr[3], bdAddr[4], bdAddr[5]);
     Serial.print("BLE Address: ");
     Serial.print(bleAddrStr);
     bleAddrStr2 += bleAddrStr;
@@ -40,6 +40,7 @@ void MyBLE_2YTECK::SetupBLE()
     // pCharOutCallback = new OutCharEventCallback();
     pTxCharacteristic->setCallbacks(this);
     pRxCharacteristic->setCallbacks(this);
+    bleReceiveSomething = false;
 
 }
 
