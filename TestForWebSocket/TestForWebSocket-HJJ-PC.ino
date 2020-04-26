@@ -519,7 +519,6 @@ void bleThreadCallback()
 
         if((strcmp(myBLE.ssid,"NULL")) && (strcmp(myBLE.pswd,"NULL")))
         {
-            WiFi.disconnect();
             // Serial.println("debugging.... myBLE jump in if");
             if(WiFi.status() != WL_CONNECTED)
             {
@@ -535,13 +534,33 @@ void bleThreadCallback()
                 {
                     sprintf(wifiConnectedStatusMsg, "{\"status\":\"F\", \"mac\":\"%s\"}", myBLE.bleAddrStr);
                     myBLE.notifySet(wifiConnectedStatusMsg);
+                    /* code */
                 }
+                
+
             }
             else
             {
                 // myBLE.StopBLE();
             }
         }
+        // else {
+        //     Serial.println("debugging.... myBLE jump in else");
+        //     if(WiFi.status() != WL_CONNECTED)
+        //     {
+        //         Serial.print("ssid: ");
+        //         Serial.print(myBLE.ssid);
+        //         Serial.print(" pswd: ");
+        //         Serial.println(myBLE.pswd);
+        //         myWiFi.ConnectWifi(myBLE.ssid, myBLE.pswd);
+        //     }
+        //     else
+        //     {
+        //         // myBLE.StopBLE();
+        //     }
+        // }
+        
+
         //ready for phone connection
         // isCalledBleButton = false;
     }
