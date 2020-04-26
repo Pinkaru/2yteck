@@ -23,17 +23,22 @@ void MyBLE_2YTECK::SetupBLE()
 
     // Create a BLE Characteristic
     pTxCharacteristic = pService->createCharacteristic(
-                      CHARACTERISTIC_UUID_TX,
-                      BLECharacteristic::PROPERTY_NOTIFY
+                      CHARACTERISTIC_UUID_OUT,
+                      BLECharacteristic::PROPERTY_NOTIFY |
+                      BLECharacteristic::PROPERTY_READ
                     );
 
     pTxCharacteristic->addDescriptor(new BLE2902());
 
     BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
-                         CHARACTERISTIC_UUID_RX,
+                         CHARACTERISTIC_UUID_IN,
                         BLECharacteristic::PROPERTY_WRITE
                       );
 
+    // pRxCharacteristic->setCallbacks(this);
+    // pCharInCallback = new InCharEventCallback();
+    // pCharOutCallback = new OutCharEventCallback();
+    pTxCharacteristic->setCallbacks(this);
     pRxCharacteristic->setCallbacks(this);
 
 }
@@ -112,3 +117,10 @@ bool MyBLE_2YTECK::WorkBLE()
     }
     return true;
 }
+
+void MyBLE_2YTECK::notifySet(std::string str)
+{
+    pTxCharacteristic->setValue((uint8_t*)str.c_str(), strlen(str.c_str()));
+    pTxCharacteristic->notify();
+}
+

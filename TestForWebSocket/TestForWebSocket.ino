@@ -20,6 +20,7 @@
             - Control Temperature
                 - Serial control    
 */
+//#include <WebSocketsClient.h>
 #include <WebSocketClient.h>
 #include <ArduinoJson.h>
 
@@ -373,6 +374,7 @@ void checkWiFiConnectedCallback()   // 1 minute period
         //connection failed -> isWificonnected = false;   
     char ssid[128];
     char pswd[128];
+    // char wifiConnectedStatusMsg[128];
     if(WiFi.status() != WL_CONNECTED)
     {
         digitalWrite(ledWiFiGreen, 0);
@@ -383,6 +385,11 @@ void checkWiFiConnectedCallback()   // 1 minute period
             myEEPROM.ReadEEPROM(EEPROM_SSID_OFFSET, EEPROM_SSID_SIZE, ssid);
             myEEPROM.ReadEEPROM(EEPROM_PSWD_OFFSET, EEPROM_SSID_SIZE, pswd);
             WiFi.begin(ssid, pswd);
+            // if(myBLE.deviceConnected)
+            // {
+            //     sprintf(wifiConnectedStatusMsg, "{\"status\":\"S\", \"mac\":\"%s\"}");
+            //     myBLE.notifySet(bleAddrStr);
+            // }
         }
     }
     else
@@ -390,6 +397,11 @@ void checkWiFiConnectedCallback()   // 1 minute period
         isWiFiConnected = true;
         digitalWrite(ledWiFiGreen, 1);
         digitalWrite(ledWiFiRed, 0);
+        // if(myBLE.deviceConnected)
+        // {
+        //     sprintf(wifiConnectedStatusMsg, "{\"status\":\"S\", \"mac\":\"%s\"}");
+        //     myBLE.notifySet(bleAddrStr);
+        // }
     }
 }
 
@@ -408,6 +420,7 @@ void tempControllerSerialCallback()
 {
     //Serial.print("TempControllerSerialCallback\n");
     //check if a controller message has been received
+    static int testbool = 0;
     if(tempController.available() > 0)
     {
         //read, parse
@@ -422,7 +435,18 @@ void tempControllerSerialCallback()
         String inputData = Serial.readString();
         Serial.print("serial Receive: ");
         Serial.print(inputData.c_str());
-        Serial.print("\n");
+        // if(test)
+        if(isCalledBleButton)
+        // if(testbool)
+        {
+            Serial.println("notify test");
+            myBLE.notifySet(inputData.c_str());
+        }
+        else
+        {
+            Serial.print("ble not set, testbool val: ");
+            Serial.println(testbool);
+        }
 
         if(isClientConnected)
         {
@@ -436,6 +460,15 @@ void tempControllerSerialCallback()
             Serial.print("\n");
 
             webSocketClient.sendData(makeMsg);
+        }
+
+        //debugging
+        if(!(strcmp(inputData.c_str(), "ble test\n")))
+        {
+            // testbool = 1;
+            Serial.println("BLE Test start");
+            isCalledBleButton = true;
+            // myBLE.StartBLE();
         }
 
     
@@ -457,6 +490,7 @@ void bleThreadCallback()
 {
     //Serial.print("BLEThreadCallback\n");
     //button event -> bool
+    char wifiConnectedStatusMsg[128];
     unsigned long bleThreadCurrTime = millis();
     if(isCalledBleButton)
     {
@@ -492,7 +526,18 @@ void bleThreadCallback()
                 Serial.print(myBLE.ssid);
                 Serial.print(" pswd: ");
                 Serial.println(myBLE.pswd);
-                myWiFi.ConnectWifi(myBLE.ssid, myBLE.pswd);
+                if(myWiFi.ConnectWifi(myBLE.ssid, myBLE.pswd))
+                {
+                    sprintf(wifiConnectedStatusMsg, "{\"status\":\"S\", \"mac\":\"%s\"}", myBLE.bleAddrStr);
+                    myBLE.notifySet(wifiConnectedStatusMsg);
+                }else
+                {
+                    sprintf(wifiConnectedStatusMsg, "{\"status\":\"F\", \"mac\":\"%s\"}", myBLE.bleAddrStr);
+                    myBLE.notifySet(wifiConnectedStatusMsg);
+                    /* code */
+                }
+                
+
             }
             else
             {

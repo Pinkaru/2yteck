@@ -38,7 +38,8 @@ bool MyWiFi_2YTECK::ConnectWifi(char* ssid, char* pswd)
     char wifiok = 1;
     WriteEEPROM(EEPROM_SSID_OFFSET, EEPROM_SSID_SIZE, ssid);
     WriteEEPROM(EEPROM_PSWD_OFFSET, EEPROM_SSID_SIZE, pswd);
-    WriteEEPROM(EEPROM_WIFI_STATUS_OFFSET, 1, &wifiok);   
+    WriteEEPROM(EEPROM_WIFI_STATUS_OFFSET, 1, &wifiok);  
+    return true; 
 }
 
 bool MyWiFi_2YTECK::SetupWiFi(char* ssid, char* pswd)
